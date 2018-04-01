@@ -6,9 +6,11 @@ import (
 )
 
 type ServerConfig struct {
-	ServerIP      string `toml:"server_ip"`
-	ServerPort    int    `toml:"server_port"`
+	BindIP        string `toml:"bind_ip"`
+	BindPort      int    `toml:"bind_port"`
 	UserTokenFile string `toml:"user_token_file"`
+	AuthTimeout   int64  `toml:"auth_timeout"`
+	PingTimeout   int    `toml:"ping_timeout"`
 
 	HttpProxy  *HttpProxyConf  `toml:"http_proxy"`
 	HttpsProxy *HttpsProxyConf `toml:"https_proxy"`

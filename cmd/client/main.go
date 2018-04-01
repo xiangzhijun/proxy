@@ -1,20 +1,34 @@
 package main
 
 import (
-	"fmt"
-	"net"
+	"flag"
+
+	log "github.com/cihub/seelog"
+	"proxy/client"
+	"proxy/config"
 )
 
 func main() {
-	server_add := "127.0.0.1:3000"
-	tcp_add, _ := net.ResolveTCPAddr("tcp", server_add)
-	conn, err := net.DialTCP("tcp", nil, tcp_add)
+	config_file := flag.String("config", "./config/config.toml", "Input your configure file")
+	log_file := flag.String("logconfig", "./config/logcfg.xml", "Input your log configure file")
+
+	flag.Parse()
+
+	logger, err := log.LoggerFromConfigAsFile(*log_file)
 	if err != nil {
-		fmt.Println(err)
+		log.Critical("err parsing config log file", err)
 		return
 	}
-	buf := []byte("hello,xiangzhijun")
-	conn.Write(buf)
-	conn.Read(buf)
-	fmt.Println("server response:" + string(buf))
+	log.ReplaceLogger(logger)
+	defer log.Flush()
+
+	clientCfg, err := config.NewClientConfWithFile(*config_file)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	Client := client.NewClient(clientCfg)
+
+	Client.Run()
 }

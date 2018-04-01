@@ -6,12 +6,14 @@ import (
 )
 
 type ClientConfig struct {
-	ServerIP   string `toml:"server_ip"`
-	ServerPort int    `toml:"server_port"`
-	User       string `toml:"user"`
-	Token      string `toml:"token"`
-
-	AllProxy []*ProxyConf `toml:"proxy"`
+	ServerIP      string       `toml:"server_ip"`
+	ServerPort    int          `toml:"server_port"`
+	User          string       `toml:"user"`
+	Token         string       `toml:"token"`
+	PingInterval  int          `toml:"ping_interval"`
+	PongTimeout   int          `toml:"pong_timeout"`
+	ConnPoolCount int          `toml:"conn_pool_count"`
+	AllProxy      []*ProxyConf `toml:"proxy"`
 }
 
 //所以客户端proxy的配置

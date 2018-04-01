@@ -5,25 +5,27 @@ import (
 	"io/ioutil"
 )
 
-type User struct {
-	UserTokenMap map[string]string
-}
+//type User struct {
+//	UserTokenMap map[string]string
+//}
 
-func (u *User) ReadUserTokenMap(file_name string) (err error) {
+type UserTokenMap map[string]string
+
+func (u *UserTokenMap) ReadUserTokenMap(file_name string) (err error) {
 	data, err := ioutil.ReadFile(file_name)
 	if err != nil {
 		return err
 	}
 
-	var temp map[string]string
-	err = json.Unmarshal(data, &temp)
-	u.UserTokenMap = temp
+	//var temp map[string]string
+	err = json.Unmarshal(data, u)
+
 	return
 
 }
 
-func (u *User) WriteUserTokenMap(file_name string) (err error) {
-	data, err := json.Marshal(u.UserTokenMap)
+func (u *UserTokenMap) WriteUserTokenMap(file_name string) (err error) {
+	data, err := json.Marshal(u)
 	if err != nil {
 		return err
 	}

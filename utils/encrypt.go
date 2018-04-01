@@ -5,9 +5,14 @@ import (
 	"crypto/cipher"
 	"crypto/md5"
 	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"sync"
+)
+
+const (
+	IdLen = 8
 )
 
 type ReadWriteCloser struct {
@@ -24,12 +29,12 @@ func Encryption(rw io.ReadWriteCloser, key []byte) (io.ReadWriteCloser, error) {
 		return nil, err
 	}
 
-	r := NewReader(re, key)
-	encrypt_conn = &ReadWriteCloser{
+	r := NewReader(rw, key)
+	encrypt_conn := &ReadWriteCloser{
 		r: r,
 		w: w,
 		closeFn: func() error {
-			rw.close()
+			return rw.Close()
 		},
 	}
 
@@ -41,24 +46,24 @@ func (rw *ReadWriteCloser) Read(p []byte) (n int, err error) {
 }
 
 func (rw *ReadWriteCloser) Write(p []byte) (n int, err error) {
-	return re.w.Write(p)
+	return rw.w.Write(p)
 }
 
 func (rw *ReadWriteCloser) Close() (err error) {
 	rw.mu.Lock()
 	defer rw.mu.Unlock()
 
-	if re.closed {
+	if rw.closed {
 		return
 	}
 
 	rw.closed = true
 	if rc, ok := rw.r.(io.Closer); ok {
-		err = rc.Closer()
+		err = rc.Close()
 	}
 
 	if wc, ok := rw.w.(io.Closer); ok {
-		err = wc.Closer()
+		err = wc.Close()
 	}
 
 	if rw.closeFn != nil {
@@ -77,7 +82,7 @@ type Writer struct {
 }
 
 func NewWriter(w io.Writer, key []byte) (*Writer, error) {
-	key = GetMD5(key)
+	key, _ = GetMD5(key)
 
 	iv := make([]byte, aes.BlockSize)
 	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
@@ -126,14 +131,14 @@ func (w *Writer) Write(p []byte) (n int, err error) {
 
 type Reader struct {
 	r       io.Reader
-	decrypt *cipher.StreamWriter
+	decrypt *cipher.StreamReader
 	key     []byte
 	iv      []byte
 	err     error
 }
 
-func NewReader(r io, Reader, key []byte) Reader {
-	key = GetMD5(key)
+func NewReader(r io.Reader, key []byte) *Reader {
+	key, _ = GetMD5(key)
 	return &Reader{
 		r:   r,
 		key: key,
@@ -146,16 +151,16 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 	}
 
 	if r.decrypt == nil {
-		iv := make([]byte, ase.BlockSize)
+		iv := make([]byte, aes.BlockSize)
 		if _, err = io.ReadFull(r.r, iv); err != nil {
 			return
 		}
 		r.iv = iv
 
-		block, err := ase.NewCipher(r.key)
+		block, err := aes.NewCipher(r.key)
 		if err != nil {
 			r.err = err
-			return
+			return 0, err
 		}
 
 		r.decrypt = &cipher.StreamReader{
@@ -169,9 +174,22 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 	return
 }
 
-func GetMD5(data []byte) []byte {
+func GetMD5(data []byte) ([]byte, string) {
 	md5Ctx := md5.New()
 	md5Ctx.Write(data)
-	return md5Ctx.Sum(nil)
 
+	b := md5Ctx.Sum(nil)
+	return b, hex.EncodeToString(b[:])
+
+}
+
+func GetClientId() (id string, err error) {
+	data := make([]byte, IdLen)
+	_, err = rand.Read(data)
+	if err != nil {
+		return
+	}
+
+	id = fmt.Sprintf("%x", data)
+	return
 }

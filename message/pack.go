@@ -10,7 +10,7 @@ import (
 func Pack(mes_type byte, msg interface{}) (m Message, err error) {
 	msg_data, err := json.Marshal(msg)
 	if err != nil {
-		return nil, err
+		return
 	}
 	m = Message{
 		Type:    mes_type,
@@ -27,6 +27,20 @@ func UnPack(m Message) (msg_type byte, msg interface{}, err error) {
 
 	case TypeLoginResp:
 		msg = new(LoginResp)
+	case TypePing:
+		msg = new(Ping)
+	case TypePong:
+		msg = new(Pong)
+	case TypeNewProxy:
+		msg = new(NewProxy)
+	case TypeNewProxyResp:
+		msg = new(NewProxyResp)
+	case TypeNewWorkConn:
+		msg = new(NewWorkConn)
+	case TypeReqWorkCOnn:
+		msg = new(ReqWorkCOnn)
+	case TypeStartWork:
+		msg = new(StartWork)
 	}
 	err = json.Unmarshal([]byte(m.MesData), msg)
 	msg_type = m.Type
@@ -40,7 +54,7 @@ func PackMsg(msg Message) (data []byte, err error) {
 }
 
 func UnPackMsg(data []byte) (msg Message, err error) {
-	err = json.Unmarshal(data, &m)
+	err = json.Unmarshal(data, &msg)
 	return
 }
 
@@ -59,8 +73,8 @@ func WriteMsg(mes_type byte, msg interface{}, c io.Writer) error {
 	binary.Write(buffer, binary.BigEndian, int64(len(data)))
 	buffer.Write(data)
 
-	err = c.Write(buffer.Bytes())
-
+	_, err = c.Write(buffer.Bytes())
+	return err
 }
 
 func ReadMsg(c io.Reader) (byte, interface{}, error) {
@@ -83,4 +97,37 @@ func ReadMsg(c io.Reader) (byte, interface{}, error) {
 
 	return UnPack(m)
 
+}
+
+func ReadRawMsg(c io.Reader) (*msg.Message, error) {
+	var length int64
+	err := binary.Read(c, binary.BigEndian, &length)
+	if err != nil {
+		return nil, err
+	}
+
+	buff := make([]byte, length)
+	_, err = io.ReadFull(c, buff)
+	if err != nil {
+		return nil, err
+	}
+
+	m, err := UnPackMsg(buff)
+	return &m, err
+
+}
+
+func WriteRawMsg(m *msg.Message, c io.Writer) error {
+
+	data, err := PackMsg(m)
+	if err != nil {
+		return err
+	}
+
+	buffer := bytes.NewBuffer(nil)
+	binary.Write(buffer, binary.BigEndian, int64(len(data)))
+	buffer.Write(data)
+
+	_, err = c.Write(buffer.Bytes())
+	return err
 }

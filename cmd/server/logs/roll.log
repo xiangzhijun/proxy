@@ -1,0 +1,9 @@
+2018-03-29/10:36:27 [main.go::main.main] [DBG] &{127.0.0.1 3000 ./usertoken.json 600 0xc42000cbe0 0xc42000cd20}
+2018-03-29/10:36:27 [service.go::proxy/server.NewService] [DBG] map[xiangzhijun:123456 y:111111]
+2018-03-29/10:36:27 [service.go::proxy/server.NewService] [DBG] NewService
+2018-03-29/10:36:27 [main.go::main.main] [INF] service start
+2018-03-29/10:37:28 [service.go::proxy/server.(*Service).Run] [DBG] accept client connection
+2018-03-29/10:37:28 [service.go::proxy/server.(*Service).Run.func1] [DBG] receive  msg
+2018-03-29/10:37:28 [service.go::proxy/server.(*Service).Run.func1] [DBG] receive login msg
+2018-03-29/10:37:28 [service.go::proxy/server.(*Service).RegisterClient] [DBG] bec91931eb2edecceab20fbed50c54d7
+2018-03-29/10:37:28 [service.go::proxy/server.(*Service).Run.func1] [DBG] RegisterClient success

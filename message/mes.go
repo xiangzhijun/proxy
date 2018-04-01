@@ -7,8 +7,11 @@ const (
 	TypeLoginResp    = 'a'
 	TypeNewProxy     = '2'
 	TypeNewProxyResp = 'b'
-	TypePing         = '3'
-	TypePong         = 'c'
+	TypeNewWorkConn  = '3'
+	TypeReqWorkCOnn  = 'c'
+	TypePing         = '4'
+	TypePong         = 'd'
+	TypeStartWork    = 'e'
 )
 
 //var AllType = [...]string{TypeLogin, TypeLoginResp, TypeNewProxy, TypeNewProxyResp, TypePing, TypePong}
@@ -20,11 +23,12 @@ type Message struct {
 
 //客户端启动时，会向服务器发生Login消息
 type Login struct {
-	Hostname  string `json:"hostname"`
-	User      string `json:"user"`
-	Sign      string `json:"sign"` //key+timestamp生成的MD5值
-	ClientId  string `json:"client_id"`
-	Timestamp string `json:"timestamp"`
+	Hostname      string `json:"hostname"`
+	User          string `json:"user"`
+	Sign          string `json:"sign"` //key+timestamp生成的MD5值
+	ClientId      string `json:"client_id"`
+	ConnPoolCount int    `json:"conn_pool_count"`
+	Timestamp     int64  `json:"timestamp"`
 }
 
 //服务器收到客户端的Login消息后，会返回LoginResp消息
@@ -42,10 +46,24 @@ type NewProxy struct {
 }
 
 type NewProxyResp struct {
+	ProxyName  string `json:"proxy_name"`
+	RemotePort int    `json:"remote_port"`
+	Error      string `json:"error"`
+}
+
+type ReqWorkConn struct {
+}
+
+type NewWorkConn struct {
+	ClientId string `json:"client_id"`
 }
 
 //客户端定期向服务器发送Ping消息，若在一定时间内没有收到服务器回复Pong，则重新登录
 type Ping struct {
 }
 type Pong struct {
+}
+
+type StartWork struct {
+	ProxyName string `json:"proxy_name"`
 }

@@ -2,9 +2,12 @@ package client
 
 import (
 	"fmt"
+	"io"
 	"net"
+	"sync"
 	"time"
 
+	log "github.com/cihub/seelog"
 	"proxy/config"
 	msg "proxy/message"
 	"proxy/utils"
@@ -15,7 +18,7 @@ const (
 )
 
 type Client struct {
-	conn    *net.Conn
+	conn    net.Conn
 	config  *config.ClientConfig
 	manager *Manager
 
@@ -23,7 +26,11 @@ type Client struct {
 
 	sendCh    chan (msg.Message)
 	receiveCh chan (msg.Message)
+	blocked   chan int
+	exit      bool
 	lastPong  time.Time
+
+	mu sync.RWMutex
 }
 
 func NewClient(conf *config.ClientConfig) (client *Client) {
@@ -31,11 +38,28 @@ func NewClient(conf *config.ClientConfig) (client *Client) {
 		config:    conf,
 		sendCh:    make(chan msg.Message, 10),
 		receiveCh: make(chan msg.Message, 10),
+		blocked:   make(chan int),
+		exit:      false,
 	}
 
 	client.manager = NewManager(client, conf.AllProxy, client.sendCh)
 
 	return
+}
+
+func (c *Client) Run() {
+	for {
+		err := c.login()
+		if err != nil {
+			log.Error(err)
+			time.Sleep(10 * time.Second)
+		} else {
+			break
+		}
+
+	}
+	log.Info("client closed")
+	go c.worker()
 }
 
 func (c *Client) login() error {
@@ -44,48 +68,233 @@ func (c *Client) login() error {
 	}
 
 	now := time.Now().Unix()
-	sign := utile.GetMD5([]byte(c.config.Token + now))
-
+	_, sign := utils.GetMD5([]byte(fmt.Sprintf("%s%d", c.config.Token, now)))
+	log.Debug(sign)
 	loginMsg := msg.Login{
 		User:      c.config.User,
-		Sign:      string(sign),
+		Sign:      sign,
 		Timestamp: now,
-		CliendId:  c.clientId,
+		ClientId:  c.clientId,
 	}
 
+	log.Debug(loginMsg)
 	conn, err := c.ConnectToServer()
 	if err != nil {
 		return err
 	}
 
+	log.Debug("connect server success")
+
 	conn.SetDeadline(time.Now().Add(ReadTimeout))
-	err = msg.WriterMsg(msg.TypeLogin, loginMsg, conn)
+	err = msg.WriteMsg(msg.TypeLogin, loginMsg, conn)
 	if err != nil {
 		return err
 	}
 
-	msg_type, loginResp, err := msg.ReadMsg(conn)
+	msg_type, m, err := msg.ReadMsg(conn)
 	if err != nil {
 		return err
 	}
 	if msg_type != msg.TypeLoginResp {
 		return fmt.Errorf("The response message is not LoginResp")
 	}
-	if loginResp.Error != nil {
+
+	loginResp := m.(*msg.LoginResp)
+	if loginResp.Error != "" {
 		return fmt.Errorf("%s", loginResp.Error)
 	}
 	conn.SetReadDeadline(time.Time{})
 
-	c.clientId = loginResp.ClientID
+	log.Debug(loginResp)
+	c.clientId = loginResp.ClientId
 	return nil
 }
 
+func (c *Client) worker() {
+	go c.readMsg()
+	go c.writeMsg()
+	go c.manager()
+
+	for {
+		select {
+
+		case _, ok := <-c.blocked:
+			if !ok {
+				close(c.sendCh)
+				close(c.receiveCh)
+
+				if c.exit {
+					return
+				}
+
+				for {
+					log.Info("reconnect to server")
+					err := c.login()
+					if err != nil {
+						log.Error("reconnect to server failed:", err)
+						time.Sleep(10)
+						continue
+					}
+					break
+				}
+
+				c.receiveCh = make(chan msg.Message, 10)
+				c.sendCh = make(chan msg.Message, 10)
+				c.blocked = make(chan int)
+
+				c.lastPong = time.Now()
+			}
+
+		}
+
+	}
+
+}
+
+func (c *Client) manager() {
+
+	c.lastPong = time.Now()
+	PingSend := time.NewTicker(c.config.PingInterval * time.Second)
+	defer PingSend.Stop()
+
+	PongCheck := time.NewTicker(time.Second)
+	defer PongCheck.Stop()
+
+	for {
+		select {
+		case <-PingSend.C:
+			p := msg.Ping{}
+			m, err := Pack(TypePing, p)
+			if err != nil {
+				log.Error(err)
+				continue
+			}
+
+			c.sendCh <- &m
+			log.Debug("send heartbeat to server")
+
+		case <-PongCheck.C:
+			if time.Since(c.lastPong) > time.Duration(c.config.PongTimeout)*time.Second {
+				log.Error("heartbeat timeout")
+				c.conn.Close()
+				return
+			}
+		case M, ok := <-c.receiveCh:
+			msg_type, m, err := UnPack(m)
+			if err != nil {
+				log.Error(err)
+				continue
+			}
+			switch msg_type {
+			case msg.TypeNewProxyResp:
+				if m.Error != "" {
+					log.Error("Regsiter new proxy error:", m.Error)
+					continue
+				}
+
+				c.manager.StratProxy(m.ProxyName, m.RemotePort)
+			case msg.TypeReqWorkConn:
+				go c.NewWorkConn(m)
+			case msg.TypePong:
+				c.lastPong = time.Now()
+
+			}
+
+		}
+
+	}
+
+}
+
+func (c *Client) readMsg() {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Error(err)
+		}
+	}()
+
+	defer close(c.blocked)
+
+	conn := utils.NewReader(c.conn, c.config.Token)
+
+	for {
+		if m, err := msg.ReadRawMsg(conn); err != nil {
+			if err == io.EOF {
+				log.Debug("read message from server EOF")
+				return
+			} else {
+				log.Error(err)
+				return
+			}
+
+		} else {
+			c.receiveCh <- m
+		}
+
+	}
+
+}
+
+func (c *Client) sendMsg() {
+	conn, err := utils.NewWriter(c.conn, c.config.Token)
+	if err != nil {
+		log.Error(err)
+		c.conn.Close()
+		return
+	}
+
+	for {
+		if m, ok := <-c.sendCh; !ok {
+			log.Error("send message chan closed")
+			return
+		} else {
+			if err := msg.WriteRawMsg(m, conn); err != nil {
+				log.Error(err)
+				return
+			}
+
+		}
+
+	}
+
+}
+
+func (c *Client) NewWorkConn(rm msg.ReqWorkConn) {
+	workConn, err := c.ConnectToServer()
+	if err != nil {
+		log.Error("connect to server error:", err)
+		return
+	}
+
+	m := msg.NewWorkCOnn{
+		ClientId: c.clientId,
+	}
+
+	err = msg.WriteMsg(msg.TypeNewWorkConn, m, workConn)
+	if err != nil {
+		log.Error("send NewWorkCOnn msg to server error:", err)
+		workConn.Close()
+		return
+	}
+
+	msg_type, sm, err2 := msg.ReadMsg(workConn)
+	if err2 != nil {
+		log.Error("read StartWork msg error:", err2)
+		return
+	}
+	if msg_type != msg.TypeStartWork {
+		log.Error("msg type is not StartWork")
+		return
+	}
+
+	c.manager.ProxyWork(sm.ProxyName, workConn)
+}
+
 func (c *Client) ConnectToServer() (net.Conn, error) {
-	server_addr := c.config.ServerIP + ":" + c.config.ServerPort
+	server_addr := fmt.Sprintf("%s:%d", c.config.ServerIP, c.config.ServerPort)
 	tcp_addr, err := net.ResolveTCPAddr("tcp", server_addr)
 	if err != nil {
 		return nil, err
 	}
-
 	return net.DialTCP("tcp", nil, tcp_addr)
 }

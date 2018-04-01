@@ -1,0 +1,21 @@
+server_ip = "127.0.0.1"
+server_port = 3000
+
+user = "xiangzhijun"
+token = "123456"
+
+[[proxy]]
+name = "http_proxy"
+type = "http"
+encryption = false
+local_ip = "127.0.0.1"
+local_port = 4000
+
+
+
+[[proxy]]
+name = "tcp_proxy"
+type = "tcp"
+encryption = true
+local_ip = "127.0.0.1"
+local_port = 5000

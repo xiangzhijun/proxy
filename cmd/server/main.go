@@ -1,24 +1,41 @@
 package main
 
 import (
-	"fmt"
-	"net"
+	"flag"
+
+	log "github.com/cihub/seelog"
+	"proxy/config"
+	"proxy/server"
 )
 
 func main() {
-	fmt.Println("server start")
-	server_add := "127.0.0.1:3000"
-	tcp_add, _ := net.ResolveTCPAddr("tcp", server_add)
-	l, _ := net.ListenTCP("tcp", tcp_add)
-	for {
-		conn, _ := l.AcceptTCP()
-		buf := make([]byte, 100)
-		conn.Read(buf)
-		fmt.Println("new conn:" + string(buf))
-		buf = []byte("hello,what's you name?")
-		local_add := conn.LocalAddr()
-		remote_add := conn.RemoteAddr()
-		fmt.Println("local addr:" + local_add.String() + ",remote addr:" + remote_add.String())
-		conn.Write(buf)
+	config_file := flag.String("config", "./config/config.toml", "Input your server configure file")
+	log_file := flag.String("logconfig", "./config/logcfg.xml", "Input your log configure file")
+
+	flag.Parse()
+
+	logger, err := log.LoggerFromConfigAsFile(*log_file)
+	if err != nil {
+		log.Critical("err parsing config log file", err)
+		return
 	}
+	log.ReplaceLogger(logger)
+	defer log.Flush()
+
+	serverCfg, err := config.NewServerConfWithFile(*config_file)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	log.Debug(serverCfg)
+
+	Service, err := server.NewService(serverCfg)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	log.Info("service start")
+	Service.Run()
+
 }
