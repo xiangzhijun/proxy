@@ -8,7 +8,7 @@ const (
 	TypeNewProxy     = '2'
 	TypeNewProxyResp = 'b'
 	TypeNewWorkConn  = '3'
-	TypeReqWorkCOnn  = 'c'
+	TypeReqWorkConn  = 'c'
 	TypePing         = '4'
 	TypePong         = 'd'
 	TypeStartWork    = 'e'
@@ -43,6 +43,10 @@ type NewProxy struct {
 	ProxyType  string `json:"proxy_type"`
 	RemotePort int    `json:"remote_port"` //指定服务器向外的代理接口
 	Encrypt    bool   `json:"encrypt"`     //传输是否加密
+
+	Host   string `json:"host"`
+	Domain string `json:"domain"`
+	Url    string `json:"url"`
 }
 
 type NewProxyResp struct {

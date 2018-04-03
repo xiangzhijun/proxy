@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net"
 	"sync"
 )
 
@@ -16,6 +17,7 @@ const (
 )
 
 type ReadWriteCloser struct {
+	net.Conn
 	r       io.Reader
 	w       io.Writer
 	closeFn func() error
@@ -23,19 +25,20 @@ type ReadWriteCloser struct {
 	mu      sync.Mutex
 }
 
-func Encryption(rw io.ReadWriteCloser, key []byte) (io.ReadWriteCloser, error) {
-	w, err := NewWriter(rw, key)
+func Encryption(c net.Conn, key []byte) (*ReadWriteCloser, error) {
+	w, err := NewWriter(c, key)
 	if err != nil {
 		return nil, err
 	}
 
-	r := NewReader(rw, key)
+	r := NewReader(c, key)
 	encrypt_conn := &ReadWriteCloser{
 		r: r,
 		w: w,
 		closeFn: func() error {
-			return rw.Close()
+			return c.Close()
 		},
+		Conn: c,
 	}
 
 	return encrypt_conn, nil

@@ -23,6 +23,7 @@ type Client struct {
 	manager *Manager
 
 	clientId string
+	Token    string
 
 	sendCh    chan (msg.Message)
 	receiveCh chan (msg.Message)
@@ -39,6 +40,7 @@ func NewClient(conf *config.ClientConfig) (client *Client) {
 		sendCh:    make(chan msg.Message, 10),
 		receiveCh: make(chan msg.Message, 10),
 		blocked:   make(chan int),
+		Token:     conf.Token,
 		exit:      false,
 	}
 
@@ -113,7 +115,7 @@ func (c *Client) login() error {
 func (c *Client) worker() {
 	go c.readMsg()
 	go c.writeMsg()
-	go c.manager()
+	go c.msgHandler()
 
 	for {
 		select {
@@ -151,10 +153,10 @@ func (c *Client) worker() {
 
 }
 
-func (c *Client) manager() {
+func (c *Client) msgHandler() {
 
 	c.lastPong = time.Now()
-	PingSend := time.NewTicker(c.config.PingInterval * time.Second)
+	PingSend := time.NewTicker(time.Duration(c.config.PingInterval) * time.Second)
 	defer PingSend.Stop()
 
 	PongCheck := time.NewTicker(time.Second)
@@ -164,13 +166,13 @@ func (c *Client) manager() {
 		select {
 		case <-PingSend.C:
 			p := msg.Ping{}
-			m, err := Pack(TypePing, p)
+			m, err := msg.Pack(msg.TypePing, p)
 			if err != nil {
 				log.Error(err)
 				continue
 			}
 
-			c.sendCh <- &m
+			c.sendCh <- m
 			log.Debug("send heartbeat to server")
 
 		case <-PongCheck.C:
@@ -180,22 +182,28 @@ func (c *Client) manager() {
 				return
 			}
 		case M, ok := <-c.receiveCh:
-			msg_type, m, err := UnPack(m)
+			if !ok {
+				return
+			}
+			msg_type, m, err := msg.UnPack(M)
 			if err != nil {
 				log.Error(err)
 				continue
 			}
 			switch msg_type {
 			case msg.TypeNewProxyResp:
-				if m.Error != "" {
-					log.Error("Regsiter new proxy error:", m.Error)
+				newProxyResp := m.(msg.NewProxyResp)
+				if newProxyResp.Error != "" {
+					log.Error("Regsiter new proxy error:", newProxyResp.Error)
 					continue
 				}
 
-				c.manager.StratProxy(m.ProxyName, m.RemotePort)
+				c.manager.StartProxy(newProxyResp.ProxyName, newProxyResp.RemotePort)
 			case msg.TypeReqWorkConn:
-				go c.NewWorkConn(m)
+				reqWorkConn := m.(msg.ReqWorkConn)
+				go c.NewWorkConn(reqWorkConn)
 			case msg.TypePong:
+
 				c.lastPong = time.Now()
 
 			}
@@ -215,7 +223,7 @@ func (c *Client) readMsg() {
 
 	defer close(c.blocked)
 
-	conn := utils.NewReader(c.conn, c.config.Token)
+	conn := utils.NewReader(c.conn, []byte(c.config.Token))
 
 	for {
 		if m, err := msg.ReadRawMsg(conn); err != nil {
@@ -235,8 +243,8 @@ func (c *Client) readMsg() {
 
 }
 
-func (c *Client) sendMsg() {
-	conn, err := utils.NewWriter(c.conn, c.config.Token)
+func (c *Client) writeMsg() {
+	conn, err := utils.NewWriter(c.conn, []byte(c.config.Token))
 	if err != nil {
 		log.Error(err)
 		c.conn.Close()
@@ -266,7 +274,7 @@ func (c *Client) NewWorkConn(rm msg.ReqWorkConn) {
 		return
 	}
 
-	m := msg.NewWorkCOnn{
+	m := msg.NewWorkConn{
 		ClientId: c.clientId,
 	}
 
@@ -287,7 +295,7 @@ func (c *Client) NewWorkConn(rm msg.ReqWorkConn) {
 		return
 	}
 
-	c.manager.ProxyWork(sm.ProxyName, workConn)
+	c.manager.ProxyWork(sm.(msg.StartWork).ProxyName, workConn)
 }
 
 func (c *Client) ConnectToServer() (net.Conn, error) {

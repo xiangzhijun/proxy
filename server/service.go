@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"time"
 
 	log "github.com/cihub/seelog"
@@ -57,7 +58,22 @@ func NewService(conf *config.ServerConfig) (svr *Service, err error) {
 	}
 
 	if conf.HttpProxy.VisitPort > 0 {
-		svr.httpReverseProxy = NewHttpReverseProxy()
+		hp := NewHttpReverseProxy()
+		svr.httpReverseProxy = hp
+		addr := fmt.Sprintf("%s:%d", conf.HttpProxy.VisitIP, conf.HttpProxy.VisitPort)
+
+		var l net.Listener
+		l, err = net.Listen("tcp", addr)
+		if err != nil {
+			log.Error("Creat http reverse proxy error:", err)
+			return
+		}
+
+		Server := &http.Server{
+			Addr:    addr,
+			Handler: hp,
+		}
+		go Server.Serve(l)
 
 	}
 
@@ -91,7 +107,7 @@ func (svr *Service) Run() {
 				if err != nil {
 					log.Error(err)
 					loginResp := msg.LoginResp{
-						Error: err,
+						Error: fmt.Sprintf("%v", err),
 					}
 					msg.WriteMsg(msg.TypeLoginResp, loginResp, conn)
 					conn.Close()
@@ -100,11 +116,11 @@ func (svr *Service) Run() {
 				log.Debug("RegisterClient success")
 
 			case msg.TypeNewWorkConn:
-				c, ok := svr.clientManager.Client[m.ClientId]
+				c, ok := svr.clientManager.Client[m.(msg.NewWorkConn).ClientId]
 				if ok {
-					c.NewWorkConn(c)
+					c.NewWorkConn(conn)
 				} else {
-					log.Warn("receive work connection,but not found client:", m.ClientId)
+					log.Warn("receive work connection,but not found client:", m.(msg.NewWorkConn).ClientId)
 					conn.Close()
 				}
 			default:

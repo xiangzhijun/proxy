@@ -1,11 +1,15 @@
 package server
 
 import (
+	"fmt"
+	"io"
 	"net"
+	"sync"
 	"time"
 
 	log "github.com/cihub/seelog"
 	msg "proxy/message"
+	"proxy/utils"
 )
 
 type ClientCtrl struct {
@@ -23,6 +27,7 @@ type ClientCtrl struct {
 	connPool chan (net.Conn)
 
 	lastPing time.Time
+	mu       sync.RWMutex
 }
 
 func NewClientCtrl(svr *Service, loginMsg *msg.Login, conn net.Conn, token string) (client *ClientCtrl) {
@@ -71,13 +76,13 @@ func (c *ClientCtrl) manager() {
 	for {
 		select {
 		case <-pingCheck.C:
-			if time.Since(c.lastPing) > time.Duration(svr.config.PingTimeout)*time.Second {
+			if time.Since(c.lastPing) > time.Duration(c.svr.conf.PingTimeout)*time.Second {
 				log.Error("client ping timeout")
 				c.conn.Close()
 				return
 			}
 
-		case rawMsg, ok := <-receiveCh:
+		case rawMsg, ok := <-c.receiveCh:
 			if !ok {
 				c.conn.Close()
 				return
@@ -90,17 +95,18 @@ func (c *ClientCtrl) manager() {
 			}
 			switch msg_type {
 			case msg.TypeNewProxy:
-				c.NewProxy(m)
+				newProxy := m.(msg.NewProxy)
+				c.RegisterProxy(newProxy)
 			case msg.TypePing:
 				c.lastPing = time.Now()
 				log.Debug("receive ping msg from client:", c.clientId)
 				pong := msg.Pong{}
-				m, err := msg.Pack(TypePong, pong)
+				m, err := msg.Pack(msg.TypePong, pong)
 				if err != nil {
 					log.Error(err)
 					continue
 				}
-				c.sendCh <- &m
+				c.sendCh <- m
 			}
 		}
 
@@ -108,7 +114,7 @@ func (c *ClientCtrl) manager() {
 }
 
 func (c *ClientCtrl) readMsg() {
-	conn := utils.NewReader(c.conn, c.token)
+	conn := utils.NewReader(c.conn, []byte(c.token))
 
 	for {
 		if m, err := msg.ReadRawMsg(conn); err != nil {
@@ -129,7 +135,7 @@ func (c *ClientCtrl) readMsg() {
 }
 
 func (c *ClientCtrl) writeMsg() {
-	conn, err := utils.NewWriter(c.conn, c.token)
+	conn, err := utils.NewWriter(c.conn, []byte(c.token))
 	if err != nil {
 		log.Error(err)
 		c.conn.Close()
@@ -169,7 +175,7 @@ func (c *ClientCtrl) NewWorkConn(conn net.Conn) {
 
 }
 
-func (c *ClientCtrl) GetWorkConn() (conn net.COnn, err error) {
+func (c *ClientCtrl) GetWorkConn() (conn net.Conn, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Error(r)
@@ -219,16 +225,40 @@ func (c *ClientCtrl) ReqNewWorkConn() {
 		return
 	}
 
-	m.sendCh <- M
+	c.sendCh <- M
 
 	return
 
 }
 
-func (c *ClientCtrl) NewProxy(m msg.NewProxy) {
+func (c *ClientCtrl) RegisterProxy(m msg.NewProxy) {
 	defer func() {
 		if err := recover(); err != nil {
 			log.Error(err)
 		}
 	}()
+
+	pxy := NewProxy(c, m)
+
+	pxy.Run()
+
+	c.mu.Lock()
+	c.proxies[pxy.GetName()] = pxy
+	c.mu.Unlock()
+
+	resp := msg.NewProxyResp{
+		ProxyName: pxy.GetName(),
+	}
+
+	M, err := msg.Pack(msg.TypeNewProxyResp, resp)
+	if err != nil {
+		pxy.Close()
+		log.Error(err)
+		return
+	}
+	c.sendCh <- M
+}
+
+func (c *ClientCtrl) Close() {
+	c.conn.Close()
 }

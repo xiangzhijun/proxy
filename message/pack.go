@@ -37,8 +37,8 @@ func UnPack(m Message) (msg_type byte, msg interface{}, err error) {
 		msg = new(NewProxyResp)
 	case TypeNewWorkConn:
 		msg = new(NewWorkConn)
-	case TypeReqWorkCOnn:
-		msg = new(ReqWorkCOnn)
+	case TypeReqWorkConn:
+		msg = new(ReqWorkConn)
 	case TypeStartWork:
 		msg = new(StartWork)
 	}
@@ -99,25 +99,25 @@ func ReadMsg(c io.Reader) (byte, interface{}, error) {
 
 }
 
-func ReadRawMsg(c io.Reader) (*msg.Message, error) {
+func ReadRawMsg(c io.Reader) (Message, error) {
 	var length int64
 	err := binary.Read(c, binary.BigEndian, &length)
 	if err != nil {
-		return nil, err
+		return Message{}, err
 	}
 
 	buff := make([]byte, length)
 	_, err = io.ReadFull(c, buff)
 	if err != nil {
-		return nil, err
+		return Message{}, err
 	}
 
 	m, err := UnPackMsg(buff)
-	return &m, err
+	return m, err
 
 }
 
-func WriteRawMsg(m *msg.Message, c io.Writer) error {
+func WriteRawMsg(m Message, c io.Writer) error {
 
 	data, err := PackMsg(m)
 	if err != nil {

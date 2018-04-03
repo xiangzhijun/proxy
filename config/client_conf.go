@@ -25,6 +25,9 @@ type ProxyConf struct {
 	LocalIP    string `toml:"local_ip"`
 	LocalPort  int    `toml:"local_port"`
 	RemotePort int    `toml:"remote_port"`
+
+	Domain string `toml:"domain"`
+	Url    string `toml:"url"`
 }
 
 func NewClientConfWithFile(file_name string) (client_conf *ClientConfig, err error) {

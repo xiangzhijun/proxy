@@ -18,7 +18,7 @@ const (
 type Manager struct {
 	client       *Client
 	allProxyConf []*config.ProxyConf
-	proxies      map[string]*Proxy
+	proxies      map[string]Proxy
 	sendCh       chan (msg.Message)
 
 	closed bool
@@ -30,20 +30,20 @@ func NewManager(client *Client, proxy_conf []*config.ProxyConf, sendCh chan (msg
 		client:       client,
 		allProxyConf: proxy_conf,
 		sendCh:       sendCh,
-		proxies:      make(map[string]*Proxy),
+		proxies:      make(map[string]Proxy),
 		closed:       false,
 	}
 
 	for _, cfg := range proxy_conf {
 		if _, ok := m.proxies[cfg.Name]; !ok {
-			pxy := NewProxy(cfg)
+			pxy := NewProxy(cfg, client.Token)
 			m.proxies[cfg.Name] = pxy
 		}
 	}
 	return
 }
 
-func (m *Manager) sendMsg(m *msg.Message) {
+func (m *Manager) sendMsg(M msg.Message) {
 	defer func() {
 		if err := recover(); err != nil {
 			log.Error(err)
@@ -51,7 +51,7 @@ func (m *Manager) sendMsg(m *msg.Message) {
 		}
 
 	}()
-	m.sendCh <- m
+	m.sendCh <- M
 	return
 }
 
@@ -61,34 +61,37 @@ func (m *Manager) CheckProxy() {
 
 	for _, pxy := range m.proxies {
 		if !IsRunning(pxy) {
-			if pxy.Type == "extranet" {
+			if pxy.GetType() == "extranet" {
 				pxy.Run()
 				continue
 			}
 			newProxyMsg := msg.NewProxy{
-				ProxyName:  pxy.Name,
-				ProxyType:  pxy.Type,
-				RemotePort: pxy.RemotePort,
-				Encrypt:    pxy.Encryption,
+				ProxyName:  pxy.GetName(),
+				ProxyType:  pxy.GetType(),
+				RemotePort: pxy.GetRemotePort(),
+				Encrypt:    pxy.GetConfig().Encryption,
+				Host:       pxy.GetConfig().LocalIP,
+				Domain:     pxy.GetConfig().Domain,
+				Url:        pxy.GetConfig().Url,
 			}
 
-			m, err := msg.Pack(msg.TypeNewProxy, newProxyMsg)
+			M, err := msg.Pack(msg.TypeNewProxy, newProxyMsg)
 			if err != nil {
 				log.Error(err)
 				return
 			}
 
-			m.sendMsg(&m)
+			m.sendMsg(M)
 		}
 	}
 }
 
-func IsRunning(pxy *Proxy) bool {
+func IsRunning(pxy Proxy) bool {
 	if pxy == nil {
 		return false
 	}
 
-	if pxy.Status == ProxyStatusRunning {
+	if pxy.GetStatus() == ProxyStatusRunning {
 		return true
 	} else {
 		return false
@@ -110,7 +113,7 @@ func (m *Manager) StartProxy(name string, remote_port int) {
 		return
 	}
 
-	pxy.RemotePort = remote_port
+	pxy.GetConfig().RemotePort = remote_port
 	pxy.Run()
 	return
 }
