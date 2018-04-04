@@ -14,11 +14,11 @@ conn_pool_count=0
 name = "http_proxy"
 type = "http"
 encryption = false
-local_ip = "0.0.0.0"
-local_port = 8080
+local_ip = "127.0.0.1"
+local_port = 80
 
 domain="120.79.196.42"
-url="/test"
+url="/"
 
 [[proxy]]
 name = "tcp_proxy"

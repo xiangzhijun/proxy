@@ -183,6 +183,7 @@ func Handler(cfg *config.ProxyConf, conn net.Conn, token string) {
 	defer localConn.Close()
 
 	BridgeConn(remote, localConn)
+	log.Debug("bridgeconn over")
 }
 
 func BridgeConn(conn1, conn2 io.ReadWriteCloser) {
@@ -193,7 +194,7 @@ func BridgeConn(conn1, conn2 io.ReadWriteCloser) {
 		defer wait.Done()
 
 		buf := make([]byte, 16*1024)
-		copyBuffer(dst, src, buf)
+		io.CopyBuffer(dst, src, buf)
 	}
 
 	go Copy(conn2, conn1)
