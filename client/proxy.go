@@ -192,11 +192,40 @@ func BridgeConn(conn1, conn2 io.ReadWriteCloser) {
 		defer wait.Done()
 
 		buf := make([]byte, 16*1024)
-		io.CopyBuffer(dst, src, buf)
+		copyBuffer(dst, src, buf)
 	}
 
 	go Copy(conn2, conn1)
 	go Copy(conn1, conn2)
 	wait.Wait()
 
+}
+func copyBuffer(dst Writer, src Reader, buf []byte) (written int64, err error) {
+	if buf == nil {
+		buf = make([]byte, 32*1024)
+	}
+	for {
+		nr, er := src.Read(buf)
+		if nr > 0 {
+			nw, ew := dst.Write(buf[0:nr])
+			if nw > 0 {
+				written += int64(nw)
+			}
+			if ew != nil {
+				err = ew
+				break
+			}
+			if nr != nw {
+				err = io.ErrShortWrite
+				break
+			}
+		}
+		if er != nil {
+			if er != EOF {
+				err = er
+			}
+			break
+		}
+	}
+	return written, err
 }
