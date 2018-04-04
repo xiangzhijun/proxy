@@ -160,6 +160,7 @@ func Handler(cfg *config.ProxyConf, conn net.Conn, token string) {
 	defer conn.Close()
 	var err error
 	var remote io.ReadWriteCloser
+	remote = conn
 	if cfg.Encryption {
 		remote, err = utils.Encryption(conn, []byte(token))
 		if err != nil {
@@ -200,7 +201,7 @@ func BridgeConn(conn1, conn2 io.ReadWriteCloser) {
 	wait.Wait()
 
 }
-func copyBuffer(dst Writer, src Reader, buf []byte) (written int64, err error) {
+func copyBuffer(dst io.Writer, src io.Reader, buf []byte) (written int64, err error) {
 	if buf == nil {
 		buf = make([]byte, 32*1024)
 	}
@@ -221,7 +222,7 @@ func copyBuffer(dst Writer, src Reader, buf []byte) (written int64, err error) {
 			}
 		}
 		if er != nil {
-			if er != EOF {
+			if er != io.EOF {
 				err = er
 			}
 			break
