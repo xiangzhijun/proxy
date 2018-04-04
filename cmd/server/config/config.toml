@@ -1,4 +1,4 @@
-bind_ip = "120.79.196.42"
+bind_ip = "0.0.0.0"
 bind_port = 3000
 user_token_file = "./config/usertoken.json"
 auth_timeout = 600
@@ -6,8 +6,8 @@ auth_timeout = 600
 ping_timeout=15
 
 [http_proxy]
-visit_ip = "120.79.196.42"
-visit_port = 8080
+visit_ip = "0.0.0.0"
+visit_port = 80
 
 [https_proxy]
 visit_ip = "127.0.0.1"

@@ -4,6 +4,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	log "github.com/cihub/seelog"
 )
 
 type Routers struct {
@@ -43,6 +45,7 @@ func (Rs *Routers) Add(domain, url string, pxy Proxy) {
 
 	rs = append(rs, r)
 	sort.Sort(sort.Reverse(ByUrl(rs)))
+	log.Debug("router:", r)
 	Rs.RouterMap[domain] = rs
 }
 

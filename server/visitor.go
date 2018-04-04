@@ -42,6 +42,7 @@ func NewHttpReverseProxy() (rp *HttpReverseProxy) {
 }
 
 func (hp *HttpReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	log.Debug("receive request from user")
 	ctx := req.Context()
 
 	if c, ok := rw.(http.CloseNotifier); ok {
@@ -68,10 +69,13 @@ func (hp *HttpReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request)
 		clientReq.Body = nil
 	}
 
+	log.Debug("72")
 	clientReq.URL.Scheme = "http"
 	url := clientReq.Context().Value("url").(string)
 	host := getHostFromAddr(clientReq.Context().Value("host").(string))
+	log.Debug("76[", host, ":", url, "]")
 	host = hp.GetRealHost(host, url)
+	log.Debug("real_host:", host)
 	if host != "" {
 		clientReq.Host = host
 	}
@@ -145,7 +149,10 @@ func (hp *HttpReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request)
 }
 
 func (hp *HttpReverseProxy) GetRealHost(host, url string) (rhost string) {
-	r := hp.router.Find(host, url)
+	r := hp.router.Get(host, url)
+	if r == nil {
+		return ""
+	}
 	return r.pxy.GetMsg().Host
 }
 
@@ -165,7 +172,10 @@ func (hp *HttpReverseProxy) Remove(domain, url string) {
 }
 
 func (hp *HttpReverseProxy) GetConn(domain, url string) (net.Conn, error) {
-	r := hp.router.Find(domain, url)
+	r := hp.router.Get(domain, url)
+	if r == nil {
+		return nil, fmt.Errorf("conn not found")
+	}
 	return r.pxy.GetWorkConn()
 }
 
