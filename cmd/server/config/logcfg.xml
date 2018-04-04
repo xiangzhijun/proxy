@@ -1,0 +1,17 @@
+<seelog type="asynctimer" asyncinterval="5000000" minlevel="debug" maxlevel="error">
+    <exceptions>
+        <exception filepattern="*main.go" minlevel="debug"/>
+    </exceptions>
+
+    <outputs formatid="main">   -->去找id为main的格式
+
+        <rollingfile type="size" filename="./logs/roll.log" maxsize="104857600" maxrolls="5" />
+
+        <filter levels="error">
+            <file path="./logs/error.log" />    -->向文件输出。可以多个共存。
+        </filter>
+    </outputs>
+    <formats>
+        <format id="main" format="%Date/%Time [%File::%Func] [%LEV] %Msg%n"/>
+    </formats>
+</seelog>
