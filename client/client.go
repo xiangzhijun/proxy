@@ -310,7 +310,7 @@ func (c *Client) NewWorkConn(rm msg.ReqWorkConn) {
 		return
 	}
 
-	c.manager.ProxyWork(sm.(msg.StartWork).ProxyName, workConn)
+	c.manager.ProxyWork(sm.(*msg.StartWork).ProxyName, workConn)
 }
 
 func (c *Client) ConnectToServer() (net.Conn, error) {
