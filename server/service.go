@@ -74,7 +74,7 @@ func NewService(conf *config.ServerConfig) (svr *Service, err error) {
 			Handler: hp,
 		}
 		go Server.Serve(l)
-
+		log.Info("http reverse proxy start")
 	}
 
 	log.Debug("NewService")
@@ -116,11 +116,12 @@ func (svr *Service) Run() {
 				log.Debug("RegisterClient success")
 
 			case msg.TypeNewWorkConn:
-				c, ok := svr.clientManager.Client[m.(msg.NewWorkConn).ClientId]
+				log.Debug("newworkconn")
+				c, ok := svr.clientManager.Client[m.(*msg.NewWorkConn).ClientId]
 				if ok {
 					c.NewWorkConn(conn)
 				} else {
-					log.Warn("receive work connection,but not found client:", m.(msg.NewWorkConn).ClientId)
+					log.Warn("receive work connection,but not found client:", m.(*msg.NewWorkConn).ClientId)
 					conn.Close()
 				}
 			default:

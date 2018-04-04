@@ -18,6 +18,7 @@ func (cm *ClientManager) Add(clientId string, clientCtrl *ClientCtrl) {
 }
 
 type ProxyManager struct {
+	proxies map[string]Proxy
 }
 
 func NewProxyManager() (pm *ProxyManager) {

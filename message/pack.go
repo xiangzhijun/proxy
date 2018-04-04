@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"io"
+
+	log "github.com/cihub/seelog"
 )
 
 func Pack(mes_type byte, msg interface{}) (m Message, err error) {
@@ -103,12 +105,14 @@ func ReadRawMsg(c io.Reader) (Message, error) {
 	var length int64
 	err := binary.Read(c, binary.BigEndian, &length)
 	if err != nil {
+		log.Error("read length err:", err)
 		return Message{}, err
 	}
 
 	buff := make([]byte, length)
 	_, err = io.ReadFull(c, buff)
 	if err != nil {
+		log.Error("read msg err:", err)
 		return Message{}, err
 	}
 

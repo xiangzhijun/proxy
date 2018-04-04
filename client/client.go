@@ -31,7 +31,8 @@ type Client struct {
 	exit      bool
 	lastPong  time.Time
 
-	mu sync.RWMutex
+	closed chan int
+	mu     sync.RWMutex
 }
 
 func NewClient(conf *config.ClientConfig) (client *Client) {
@@ -40,6 +41,7 @@ func NewClient(conf *config.ClientConfig) (client *Client) {
 		sendCh:    make(chan msg.Message, 10),
 		receiveCh: make(chan msg.Message, 10),
 		blocked:   make(chan int),
+		closed:    make(chan int),
 		Token:     conf.Token,
 		exit:      false,
 	}
@@ -60,8 +62,12 @@ func (c *Client) Run() {
 		}
 
 	}
-	log.Info("client closed")
 	go c.worker()
+
+	c.manager.CheckProxy()
+
+	<-c.closed
+	log.Info("client closed")
 }
 
 func (c *Client) login() error {
@@ -73,10 +79,11 @@ func (c *Client) login() error {
 	_, sign := utils.GetMD5([]byte(fmt.Sprintf("%s%d", c.config.Token, now)))
 	log.Debug(sign)
 	loginMsg := msg.Login{
-		User:      c.config.User,
-		Sign:      sign,
-		Timestamp: now,
-		ClientId:  c.clientId,
+		User:          c.config.User,
+		Sign:          sign,
+		Timestamp:     now,
+		ClientId:      c.clientId,
+		ConnPoolCount: c.config.ConnPoolCount,
 	}
 
 	log.Debug(loginMsg)
@@ -87,7 +94,7 @@ func (c *Client) login() error {
 
 	log.Debug("connect server success")
 
-	conn.SetDeadline(time.Now().Add(ReadTimeout))
+	conn.SetReadDeadline(time.Now().Add(ReadTimeout))
 	err = msg.WriteMsg(msg.TypeLogin, loginMsg, conn)
 	if err != nil {
 		return err
@@ -109,6 +116,7 @@ func (c *Client) login() error {
 
 	log.Debug(loginResp)
 	c.clientId = loginResp.ClientId
+	c.conn = conn
 	return nil
 }
 
@@ -125,6 +133,8 @@ func (c *Client) worker() {
 				close(c.sendCh)
 				close(c.receiveCh)
 
+				c.closed <- 1
+				return
 				if c.exit {
 					return
 				}
@@ -145,6 +155,9 @@ func (c *Client) worker() {
 				c.blocked = make(chan int)
 
 				c.lastPong = time.Now()
+				go c.readMsg()
+				go c.writeMsg()
+				go c.msgHandler()
 			}
 
 		}
@@ -169,9 +182,9 @@ func (c *Client) msgHandler() {
 			m, err := msg.Pack(msg.TypePing, p)
 			if err != nil {
 				log.Error(err)
-				continue
+				c.conn.Close()
+				return
 			}
-
 			c.sendCh <- m
 			log.Debug("send heartbeat to server")
 
@@ -192,7 +205,8 @@ func (c *Client) msgHandler() {
 			}
 			switch msg_type {
 			case msg.TypeNewProxyResp:
-				newProxyResp := m.(msg.NewProxyResp)
+				log.Debug("receive newproxyresp")
+				newProxyResp := m.(*msg.NewProxyResp)
 				if newProxyResp.Error != "" {
 					log.Error("Regsiter new proxy error:", newProxyResp.Error)
 					continue
@@ -200,10 +214,11 @@ func (c *Client) msgHandler() {
 
 				c.manager.StartProxy(newProxyResp.ProxyName, newProxyResp.RemotePort)
 			case msg.TypeReqWorkConn:
-				reqWorkConn := m.(msg.ReqWorkConn)
-				go c.NewWorkConn(reqWorkConn)
+				log.Debug("receive reqworkconn")
+				reqWorkConn := m.(*msg.ReqWorkConn)
+				go c.NewWorkConn(*reqWorkConn)
 			case msg.TypePong:
-
+				log.Debug("receive pong")
 				c.lastPong = time.Now()
 
 			}
@@ -253,7 +268,7 @@ func (c *Client) writeMsg() {
 
 	for {
 		if m, ok := <-c.sendCh; !ok {
-			log.Error("send message chan closed")
+			log.Warn("send message chan closed")
 			return
 		} else {
 			if err := msg.WriteRawMsg(m, conn); err != nil {

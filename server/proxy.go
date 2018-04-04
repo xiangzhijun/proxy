@@ -138,10 +138,12 @@ func (pxy *HttpProxy) Run() {
 		log.Error("register http proxy error:", err)
 		pxy.Close()
 	}
+	log.Debug("HttpProxy is running")
 }
 
 func (pxy *HttpProxy) Close() {
 	pxy.clientCtrl.svr.httpReverseProxy.Remove(pxy.Domain, pxy.Url)
+	log.Debug("httpProxy is Closed")
 }
 
 type HttpsProxy struct {

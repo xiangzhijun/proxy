@@ -80,7 +80,7 @@ func (m *Manager) CheckProxy() {
 				log.Error(err)
 				return
 			}
-
+			log.Debug("send new proxy msg")
 			m.sendMsg(M)
 		}
 	}

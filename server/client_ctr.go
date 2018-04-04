@@ -25,6 +25,7 @@ type ClientCtrl struct {
 	receiveCh chan (msg.Message)
 
 	connPool chan (net.Conn)
+	closed   chan int
 
 	lastPing time.Time
 	mu       sync.RWMutex
@@ -41,6 +42,7 @@ func NewClientCtrl(svr *Service, loginMsg *msg.Login, conn net.Conn, token strin
 		sendCh:    make(chan msg.Message, 10),
 		receiveCh: make(chan msg.Message, 10),
 		connPool:  make(chan net.Conn, loginMsg.ConnPoolCount+10),
+		closed:    make(chan int),
 		lastPing:  time.Now(),
 	}
 	return
@@ -72,7 +74,7 @@ func (c *ClientCtrl) manager() {
 
 	pingCheck := time.NewTicker(time.Second)
 	defer pingCheck.Stop()
-
+	c.lastPing = time.Now()
 	for {
 		select {
 		case <-pingCheck.C:
@@ -95,8 +97,9 @@ func (c *ClientCtrl) manager() {
 			}
 			switch msg_type {
 			case msg.TypeNewProxy:
-				newProxy := m.(msg.NewProxy)
-				c.RegisterProxy(newProxy)
+				log.Debug("NewProxy")
+				newProxy := m.(*msg.NewProxy)
+				c.RegisterProxy(*newProxy)
 			case msg.TypePing:
 				c.lastPing = time.Now()
 				log.Debug("receive ping msg from client:", c.clientId)
@@ -108,6 +111,10 @@ func (c *ClientCtrl) manager() {
 				}
 				c.sendCh <- m
 			}
+
+		case <-c.closed:
+			log.Debug("client is exited")
+			return
 		}
 
 	}
@@ -119,7 +126,8 @@ func (c *ClientCtrl) readMsg() {
 	for {
 		if m, err := msg.ReadRawMsg(conn); err != nil {
 			if err == io.EOF {
-				log.Debug("read message from server EOF")
+				log.Debug("read message from client EOF")
+				c.closed <- 1
 				return
 
 			} else {
@@ -224,7 +232,7 @@ func (c *ClientCtrl) ReqNewWorkConn() {
 		log.Error(err)
 		return
 	}
-
+	log.Debug("send newworkconn msg")
 	c.sendCh <- M
 
 	return
@@ -261,4 +269,7 @@ func (c *ClientCtrl) RegisterProxy(m msg.NewProxy) {
 
 func (c *ClientCtrl) Close() {
 	c.conn.Close()
+	for _, p := range c.proxies {
+		p.Close()
+	}
 }

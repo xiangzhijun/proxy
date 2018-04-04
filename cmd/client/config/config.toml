@@ -1,17 +1,24 @@
-server_ip = "127.0.0.1"
+server_ip = "120.79.196.42"
 server_port = 3000
 
 user = "xiangzhijun"
 token = "123456"
 
+ping_interval=10
+pong_timeout=15
+
+conn_pool_count=0
+
+
 [[proxy]]
 name = "http_proxy"
 type = "http"
 encryption = false
-local_ip = "127.0.0.1"
-local_port = 4000
+local_ip = "0.0.0.0"
+local_port = 8080
 
-
+domain="120.79.196.42"
+url="/test"
 
 [[proxy]]
 name = "tcp_proxy"

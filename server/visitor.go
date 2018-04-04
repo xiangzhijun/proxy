@@ -156,6 +156,7 @@ func (hp *HttpReverseProxy) Register(domain, url string, pxy Proxy) error {
 		return err
 	} else {
 		hp.router.Add(domain, url, pxy)
+		log.Debug("add router  ", domain, ":", url)
 		return nil
 	}
 }

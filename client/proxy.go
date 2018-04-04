@@ -91,6 +91,7 @@ type HttpProxy struct {
 }
 
 func (pxy *HttpProxy) Run() error {
+	log.Debug("http proxy is running")
 	pxy.Status = ProxyStatusRunning
 	return nil
 }

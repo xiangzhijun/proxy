@@ -1,5 +1,0 @@
-2018-03-29/10:37:28 [client.go::proxy/client.(*Client).login] [DBG] bec91931eb2edecceab20fbed50c54d7
-2018-03-29/10:37:28 [client.go::proxy/client.(*Client).login] [DBG] { xiangzhijun bec91931eb2edecceab20fbed50c54d7  1522291048}
-2018-03-29/10:37:28 [client.go::proxy/client.(*Client).login] [DBG] connect server success
-2018-03-29/10:37:28 [client.go::proxy/client.(*Client).login] [DBG] &{d005bd93d8bbe4e0 1 }
-2018-03-29/10:37:28 [client.go::proxy/client.(*Client).Run] [INF] client closed
