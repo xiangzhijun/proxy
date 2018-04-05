@@ -12,6 +12,9 @@ type ServerConfig struct {
 	AuthTimeout   int64  `toml:"auth_timeout"`
 	PingTimeout   int    `toml:"ping_timeout"`
 
+	MinPort int `toml:"min_port"`
+	MaxPort int `toml:"max_port"`
+
 	HttpProxy  *HttpProxyConf  `toml:"http_proxy"`
 	HttpsProxy *HttpsProxyConf `toml:"https_proxy"`
 }

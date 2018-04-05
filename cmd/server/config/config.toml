@@ -5,6 +5,9 @@ auth_timeout = 600
 
 ping_timeout=15
 
+min_port=4000
+max_port=5000
+
 [http_proxy]
 visit_ip = "0.0.0.0"
 visit_port = 80

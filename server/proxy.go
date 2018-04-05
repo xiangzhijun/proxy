@@ -1,6 +1,8 @@
 package server
 
 import (
+	"fmt"
+	"io"
 	"net"
 	"sync"
 
@@ -118,9 +120,35 @@ type TcpProxy struct {
 }
 
 func (pxy *TcpProxy) Run() {
+	realPort := pxy.clientCtrl.svr.portManager.Get(pxy.clientCtrl.clientId, pxy.RemotePort)
+	if realPort <= 0 {
+		log.Error("get realport error")
+		return
+	}
+	pxy.RemotePort = realPort
+
+	l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", pxy.clientCtrl.svr.conf.BindIP, realPort))
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	go func(L net.Listener, p *TcpProxy) {
+		for {
+			conn, err := L.Accept()
+			if err != nil {
+				log.Info("listener is closed:", err)
+				return
+			}
+
+			log.Debug("get user connection")
+			go TcpHandler(conn, p)
+		}
+	}(l, pxy)
 
 }
 func (pxy *TcpProxy) Close() {
+	pxy.clientCtrl.svr.portManager.Release(pxy.RemotePort)
 }
 
 type HttpProxy struct {
@@ -156,4 +184,35 @@ func (pxy *HttpsProxy) Run() {
 
 }
 func (pxy *HttpsProxy) Close() {
+}
+
+func TcpHandler(userConn net.Conn, pxy *TcpProxy) {
+	defer userConn.Close()
+
+	workConn, err := pxy.GetWorkConn()
+	if err != nil {
+		log.Error("get work conn error:", err)
+	}
+	defer workConn.Close()
+
+	log.Debug("bridge connection")
+	BridgeConn(userConn, workConn)
+	log.Debug("bridge completed")
+}
+
+func BridgeConn(conn1, conn2 io.ReadWriteCloser) {
+	var wait sync.WaitGroup
+	wait.Add(2)
+
+	Copy := func(dst, src io.ReadWriteCloser) {
+		defer wait.Done()
+
+		buf := make([]byte, 16*1024)
+		io.CopyBuffer(dst, src, buf)
+	}
+
+	go Copy(conn2, conn1)
+	go Copy(conn1, conn2)
+	wait.Wait()
+
 }

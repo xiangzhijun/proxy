@@ -28,6 +28,8 @@ type Service struct {
 	//管理所有代理
 	proxyManager *ProxyManager
 
+	portManager *PortManager
+
 	//http反向代理
 	httpReverseProxy *HttpReverseProxy
 
@@ -39,6 +41,7 @@ func NewService(conf *config.ServerConfig) (svr *Service, err error) {
 		conf:          conf,
 		clientManager: NewClientManager(),
 		proxyManager:  NewProxyManager(),
+		portManager:   NewPortManager(conf.MinPort, conf.MaxPort, conf.BindIP),
 		userToken:     make(map[string]string),
 	}
 
