@@ -84,6 +84,8 @@ func (pm *PortManager) Get(name string, remote_port int) int {
 		}
 		count++
 		if pm.PortTest(p) {
+			pm.usedPorts[p] = name
+			delete(pm.freePorts, p)
 			return p
 		}
 
