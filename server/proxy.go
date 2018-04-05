@@ -121,6 +121,7 @@ type TcpProxy struct {
 
 func (pxy *TcpProxy) Run() {
 	realPort := pxy.clientCtrl.svr.portManager.Get(pxy.clientCtrl.clientId, pxy.RemotePort)
+	log.Debug("get realport:", realPort)
 	if realPort <= 0 {
 		log.Error("get realport error")
 		return
@@ -145,6 +146,7 @@ func (pxy *TcpProxy) Run() {
 			go TcpHandler(conn, p)
 		}
 	}(l, pxy)
+	log.Debug("tcp proxy is running")
 
 }
 func (pxy *TcpProxy) Close() {
