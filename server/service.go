@@ -33,6 +33,9 @@ type Service struct {
 	//http反向代理
 	httpReverseProxy *HttpReverseProxy
 
+	//https反向代理
+	httpsReverseProxy *HttpsReverseProxy
+
 	userToken config.UserTokenMap
 }
 
@@ -78,6 +81,21 @@ func NewService(conf *config.ServerConfig) (svr *Service, err error) {
 		}
 		go Server.Serve(l)
 		log.Info("http reverse proxy start")
+	}
+
+	if conf.HttpsProxy.VisitPort > 0 {
+		addr := fmt.Sprintf("%s:%d", conf.HttpsProxy.VisitIP, conf.HttpsProxy.VisitPort)
+		var l net.Listener
+		l, err = net.Listen("tcp", addr)
+		if err != nil {
+			log.Error("Creat https reverse proxy error:", err)
+			return
+		}
+
+		https_server := NewHttpsReverseProxy(l)
+		svr.httpsReverseProxy = https_server
+		go https_server.Run()
+		log.Info("https reverse proxy start")
 	}
 
 	log.Debug("NewService")

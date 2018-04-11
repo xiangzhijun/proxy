@@ -76,9 +76,14 @@ func (hp *HttpReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request)
 	log.Debug("76[", host, ":", url, "]")
 	host = hp.GetRealHost(host, url)
 	log.Debug("real_host:", host)
-	if host != "" {
-		clientReq.Host = host
+	if host == "" {
+		log.Debug("user visit http service is not existed")
+		rw.WriteHeader(http.StatusNotFound)
+		rw.Write([]byte("Not Found"))
+		return
 	}
+
+	clientReq.Host = host
 	clientReq.URL.Host = host
 
 	clientReq.Close = false

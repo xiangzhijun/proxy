@@ -166,7 +166,7 @@ func (pxy *HttpProxy) Run() {
 	err := pxy.clientCtrl.svr.httpReverseProxy.Register(pxy.Domain, pxy.Url, pxy)
 	if err != nil {
 		log.Error("register http proxy error:", err)
-		pxy.Close()
+		return
 	}
 	log.Debug("HttpProxy is running")
 }
@@ -183,9 +183,17 @@ type HttpsProxy struct {
 }
 
 func (pxy *HttpsProxy) Run() {
+	err := pxy.clientCrtl.svr.httpsReverseProxy.Register(pxy.Domain, "/", pxy) //https不支持url路由
+	if err != nil {
+		log.Error("register https proxy error:", err)
+		return
+	}
+	log.Debug("HttpsProxy is running")
 
 }
 func (pxy *HttpsProxy) Close() {
+	pxy.clientCrtl.svr.httpsReverseProxy.Remove(pxy.Domain, "/")
+	log.Debug("httpProxy is Closed")
 }
 
 func TcpHandler(userConn net.Conn, pxy *TcpProxy) {

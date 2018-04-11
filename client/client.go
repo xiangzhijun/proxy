@@ -18,9 +18,10 @@ const (
 )
 
 type Client struct {
-	conn    net.Conn
-	config  *config.ClientConfig
-	manager *Manager
+	conn          net.Conn
+	config        *config.ClientConfig
+	manager       *Manager
+	extranetProxy *ExtranetProxy
 
 	clientId string
 	Token    string
@@ -48,6 +49,11 @@ func NewClient(conf *config.ClientConfig) (client *Client) {
 
 	client.manager = NewManager(client, conf.AllProxy, client.sendCh)
 
+	if conf.Extranet != nil {
+		ep := NewExtranetProxy(conf.Extranet)
+		client.extranetProxy = ep
+		ep.Run()
+	}
 	return
 }
 
@@ -67,6 +73,7 @@ func (c *Client) Run() {
 	c.manager.CheckProxy()
 
 	<-c.closed
+	client.extranetProxy.Close()
 	log.Info("client closed")
 }
 

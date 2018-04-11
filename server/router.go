@@ -78,7 +78,9 @@ func (Rs *Routers) Get(domain, url string) *router {
 	if !ok {
 		return nil
 	}
-
+	if url == "" {
+		url = "/"
+	}
 	for _, r := range rs {
 		if strings.HasPrefix(url, r.url) {
 			return r

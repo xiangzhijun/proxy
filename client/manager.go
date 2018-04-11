@@ -61,10 +61,6 @@ func (m *Manager) CheckProxy() {
 
 	for _, pxy := range m.proxies {
 		if !IsRunning(pxy) {
-			if pxy.GetType() == "extranet" {
-				pxy.Run()
-				continue
-			}
 			newProxyMsg := msg.NewProxy{
 				ProxyName:  pxy.GetName(),
 				ProxyType:  pxy.GetType(),

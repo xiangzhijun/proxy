@@ -6,14 +6,15 @@ import (
 )
 
 type ClientConfig struct {
-	ServerIP      string       `toml:"server_ip"`
-	ServerPort    int          `toml:"server_port"`
-	User          string       `toml:"user"`
-	Token         string       `toml:"token"`
-	PingInterval  int          `toml:"ping_interval"`
-	PongTimeout   int          `toml:"pong_timeout"`
-	ConnPoolCount int          `toml:"conn_pool_count"`
-	AllProxy      []*ProxyConf `toml:"proxy"`
+	ServerIP      string        `toml:"server_ip"`
+	ServerPort    int           `toml:"server_port"`
+	User          string        `toml:"user"`
+	Token         string        `toml:"token"`
+	PingInterval  int           `toml:"ping_interval"`
+	PongTimeout   int           `toml:"pong_timeout"`
+	ConnPoolCount int           `toml:"conn_pool_count"`
+	AllProxy      []*ProxyConf  `toml:"proxy"`
+	Extranet      *ExtranetConf `toml:"entranet"`
 }
 
 //所以客户端proxy的配置
@@ -28,6 +29,11 @@ type ProxyConf struct {
 
 	Domain string `toml:"domain"`
 	Url    string `toml:"url"`
+}
+
+type ExtranetConf struct {
+	BindIP   string `toml:"bind_ip"`
+	BindPort int    `toml:"bind_port"`
 }
 
 func NewClientConfWithFile(file_name string) (client_conf *ClientConfig, err error) {
