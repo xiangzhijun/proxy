@@ -54,6 +54,8 @@ func NewProxy(c *ClientCtrl, m msg.NewProxy) (pxy Proxy) {
 			BaseProxy:  baseProxy,
 			RemotePort: m.RemotePort,
 			Encrypt:    m.Encrypt,
+			Domain:     m.Domain,
+			Url:        m.Url,
 		}
 
 	}
@@ -180,10 +182,13 @@ type HttpsProxy struct {
 	BaseProxy
 	RemotePort int
 	Encrypt    bool
+
+	Domain string
+	Url    string
 }
 
 func (pxy *HttpsProxy) Run() {
-	err := pxy.clientCrtl.svr.httpsReverseProxy.Register(pxy.Domain, "/", pxy) //https不支持url路由
+	err := pxy.clientCtrl.svr.httpsReverseProxy.Register(pxy.Domain, "/", pxy) //https不支持url路由
 	if err != nil {
 		log.Error("register https proxy error:", err)
 		return
@@ -192,7 +197,7 @@ func (pxy *HttpsProxy) Run() {
 
 }
 func (pxy *HttpsProxy) Close() {
-	pxy.clientCrtl.svr.httpsReverseProxy.Remove(pxy.Domain, "/")
+	pxy.clientCtrl.svr.httpsReverseProxy.Remove(pxy.Domain, "/")
 	log.Debug("httpProxy is Closed")
 }
 

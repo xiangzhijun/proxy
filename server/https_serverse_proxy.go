@@ -86,7 +86,7 @@ func (hp *HttpsReverseProxy) handler(conn net.Conn) {
 		log.Error(err)
 		return
 	}
-	log.Debug(hostInfo)
+	log.Debug(host)
 	domain := strings.ToLower(host)
 	url := "/"
 	client_conn, err2 := hp.GetConn(domain, url)
