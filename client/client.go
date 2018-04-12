@@ -73,7 +73,7 @@ func (c *Client) Run() {
 	c.manager.CheckProxy()
 
 	<-c.closed
-	client.extranetProxy.Close()
+	c.extranetProxy.Close()
 	log.Info("client closed")
 }
 

@@ -1,9 +1,12 @@
 package client
 
 import (
+	"fmt"
+	"io"
 	"net"
 	"net/http"
 
+	log "github.com/cihub/seelog"
 	"proxy/config"
 )
 
@@ -38,7 +41,6 @@ func (pxy *ExtranetProxy) Run() error {
 
 	go svr.Serve(l)
 	log.Debug("Extranet proxy is running")
-	pxy.Status = ProxyStatusRunning
 	return nil
 
 }
@@ -50,7 +52,7 @@ func (pxy *ExtranetProxy) Close() {
 }
 
 func (pxy *ExtranetProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-
+	log.Debug("user request")
 	if req.Method == http.MethodConnect {
 		hijacker, ok := rw.(http.Hijacker)
 		if !ok {
