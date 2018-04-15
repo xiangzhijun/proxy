@@ -36,6 +36,8 @@ type Service struct {
 	//https反向代理
 	httpsReverseProxy *HttpsReverseProxy
 
+	admin *Admin
+
 	userToken config.UserTokenMap
 }
 
@@ -97,6 +99,11 @@ func NewService(conf *config.ServerConfig) (svr *Service, err error) {
 		go https_server.Run()
 		log.Info("https reverse proxy start")
 	}
+
+	admin := NewAdmin(svr, fmt.Sprintf("%s:%d", conf.AdminSystemIP, conf.AdminSystemPort), conf.WebFileAddr)
+	go admin.Run()
+	svr.admin = admin
+	log.Info("admin system is running")
 
 	log.Debug("NewService")
 	return

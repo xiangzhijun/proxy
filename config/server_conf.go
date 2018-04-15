@@ -15,6 +15,10 @@ type ServerConfig struct {
 	MinPort int `toml:"min_port"`
 	MaxPort int `toml:"max_port"`
 
+	AdminSystemIP   string `toml:"admin_system_ip"`
+	AdminSystemPort int    `toml:"admin_system_prot"`
+	WebFileAddr     string `toml:"web_file_addr"`
+
 	HttpProxy  *HttpProxyConf  `toml:"http_proxy"`
 	HttpsProxy *HttpsProxyConf `toml:"https_proxy"`
 }

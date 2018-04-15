@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"net"
 	"sync"
+
+	log "github.com/cihub/seelog"
 )
 
 type ClientManager struct {
 	//map[clientID]client
 	Client map[string]*ClientCtrl
+	mu     sync.RWMutex
 }
 
 func NewClientManager() (cm *ClientManager) {
@@ -20,17 +23,51 @@ func NewClientManager() (cm *ClientManager) {
 }
 
 func (cm *ClientManager) Add(clientId string, clientCtrl *ClientCtrl) {
+	cm.mu.Lock()
 	cm.Client[clientId] = clientCtrl
+	cm.mu.Unlock()
+}
+
+func (cm *ClientManager) Del(clientId string, clientCtrl *ClientCtrl) {
+	cm.mu.Lock()
+	c, ok := cm.Client[clientId]
+	if ok {
+		if c == clientCtrl {
+			delete(cm.Client, clientId)
+		}
+	}
+	cm.mu.Unlock()
 }
 
 type ProxyManager struct {
 	proxies map[string]Proxy
+	mu      sync.RWMutex
 }
 
 func NewProxyManager() (pm *ProxyManager) {
-	pm = &ProxyManager{}
+	pm = &ProxyManager{
+		proxies: make(map[string]Proxy),
+	}
 	return
 
+}
+
+func (pm *ProxyManager) Add(idAndName string, pxy Proxy) {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+	if _, ok := pm.proxies[idAndName]; ok {
+		log.Warn("proxy is existed,add to pm failed")
+		return
+	}
+	pm.proxies[idAndName] = pxy
+}
+
+func (pm *ProxyManager) Del(idAndName string) {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+	if _, ok := pm.proxies[idAndName]; ok {
+		delete(pm.proxies, idAndName)
+	}
 }
 
 type PortManager struct {

@@ -18,6 +18,7 @@ type ClientCtrl struct {
 
 	loginMsg *msg.Login
 	clientId string
+	user     string
 	token    string
 	proxies  map[string]Proxy
 
@@ -38,6 +39,7 @@ func NewClientCtrl(svr *Service, loginMsg *msg.Login, conn net.Conn, token strin
 		loginMsg:  loginMsg,
 		clientId:  loginMsg.ClientId,
 		token:     token,
+		user:      loginMsg.User,
 		proxies:   make(map[string]Proxy),
 		sendCh:    make(chan msg.Message, 10),
 		receiveCh: make(chan msg.Message, 10),
@@ -74,6 +76,7 @@ func (c *ClientCtrl) manager() {
 
 	pingCheck := time.NewTicker(time.Second)
 	defer pingCheck.Stop()
+	defer c.Close()
 	c.lastPing = time.Now()
 	for {
 		select {
@@ -113,7 +116,6 @@ func (c *ClientCtrl) manager() {
 			}
 
 		case <-c.closed:
-			log.Debug("client is exited")
 			return
 		}
 
@@ -254,6 +256,8 @@ func (c *ClientCtrl) RegisterProxy(m msg.NewProxy) {
 	c.proxies[pxy.GetName()] = pxy
 	c.mu.Unlock()
 
+	c.svr.proxyManager.Add(c.clientId+"_"+pxy.GetName(), pxy)
+
 	resp := msg.NewProxyResp{
 		ProxyName: pxy.GetName(),
 	}
@@ -272,4 +276,6 @@ func (c *ClientCtrl) Close() {
 	for _, p := range c.proxies {
 		p.Close()
 	}
+	c.svr.clientManager.Del(c.clientId, c)
+	log.Debug("client[" + c.clientId + "] is exited")
 }

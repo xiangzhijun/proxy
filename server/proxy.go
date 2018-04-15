@@ -21,6 +21,7 @@ type Proxy interface {
 	GetType() string
 	GetClient() *ClientCtrl
 	GetMsg() msg.NewProxy
+	GetConnNum() int
 }
 
 func NewProxy(c *ClientCtrl, m msg.NewProxy) (pxy Proxy) {
@@ -70,6 +71,7 @@ type BaseProxy struct {
 
 	clientCtrl *ClientCtrl
 	Msg        msg.NewProxy
+	ConnNum    int
 
 	mu sync.RWMutex
 }
@@ -85,6 +87,9 @@ func (b *BaseProxy) GetClient() *ClientCtrl {
 }
 func (b *BaseProxy) GetMsg() msg.NewProxy {
 	return b.Msg
+}
+func (b *BaseProxy) GetConnNum() int {
+	return b.ConnNum
 }
 
 func (pxy *BaseProxy) GetWorkConn() (conn net.Conn, err error) {
@@ -129,7 +134,7 @@ func (pxy *TcpProxy) Run() {
 		return
 	}
 	pxy.RemotePort = realPort
-
+	pxy.Msg.RemotePort = realPort
 	l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", pxy.clientCtrl.svr.conf.BindIP, realPort))
 	if err != nil {
 		log.Error(err)
@@ -153,6 +158,8 @@ func (pxy *TcpProxy) Run() {
 }
 func (pxy *TcpProxy) Close() {
 	pxy.clientCtrl.svr.portManager.Release(pxy.RemotePort)
+	delete(pxy.clientCtrl.proxies, pxy.Name)
+	pxy.clientCtrl.svr.proxyManager.Del(pxy.clientCtrl.clientId + "_" + pxy.Name)
 }
 
 type HttpProxy struct {
@@ -175,6 +182,8 @@ func (pxy *HttpProxy) Run() {
 
 func (pxy *HttpProxy) Close() {
 	pxy.clientCtrl.svr.httpReverseProxy.Remove(pxy.Domain, pxy.Url)
+	delete(pxy.clientCtrl.proxies, pxy.Name)
+	pxy.clientCtrl.svr.proxyManager.Del(pxy.clientCtrl.clientId + "_" + pxy.Name)
 	log.Debug("httpProxy is Closed")
 }
 
@@ -198,11 +207,22 @@ func (pxy *HttpsProxy) Run() {
 }
 func (pxy *HttpsProxy) Close() {
 	pxy.clientCtrl.svr.httpsReverseProxy.Remove(pxy.Domain, "/")
+	delete(pxy.clientCtrl.proxies, pxy.Name)
+	pxy.clientCtrl.svr.proxyManager.Del(pxy.clientCtrl.clientId + "_" + pxy.Name)
+
 	log.Debug("httpProxy is Closed")
 }
 
 func TcpHandler(userConn net.Conn, pxy *TcpProxy) {
 	defer userConn.Close()
+	pxy.mu.Lock()
+	pxy.ConnNum++
+	pxy.mu.Unlock()
+	defer func(p *TcpProxy) {
+		p.mu.Lock()
+		p.ConnNum--
+		p.mu.Unlock()
+	}(pxy)
 
 	workConn, err := pxy.GetWorkConn()
 	if err != nil {

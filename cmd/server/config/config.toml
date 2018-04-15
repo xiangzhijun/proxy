@@ -8,6 +8,11 @@ ping_timeout=15
 min_port=4000
 max_port=5000
 
+admin_system_ip = "0.0.0.0"
+admin_system_prot = 3001
+WebFileAddr = "/root/src/proxy/cmd/server/web/"
+
+
 [http_proxy]
 visit_ip = "0.0.0.0"
 visit_port = 80
